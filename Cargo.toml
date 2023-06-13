@@ -9,5 +9,6 @@ name = "upolygon_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
+ndarray = "0.15.6"
 numpy = "0.19.0"
 pyo3 = "0.19.0"
