@@ -9,7 +9,7 @@ import pandas as pd
 sizes = [x for x in range(100, 2000, 100)]
 results_rs = [[], []]
 results_py = [[], []]
-iterations = 10
+iterations = 1
 for i in sizes:
     data_encode = np.random.randint(2, size=i*i).reshape((i, i)).astype(np.uint64)
     encoded = upol_rs.rle_encode(data_encode)
@@ -27,7 +27,8 @@ for i in sizes:
 
 df = pd.DataFrame({"size": sizes, "rust_encode": results_rs[0], "rust_decode": results_rs[1], "cpython_encode": results_py[0], "cpython_decode": results_py[1]})
 
-plot = sns.lineplot(data=df, x="size", y="time")
+headers = [x for x in df.columns if x != "size"]
+plot = sns.lineplot(data=df[headers])
 fig = plot.get_figure()
 fig.savefig("benchmark.png")
 # out = timeit("upol_rs.rle_encode(data_encode)", globals=globals(), number=50)

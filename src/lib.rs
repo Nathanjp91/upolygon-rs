@@ -12,10 +12,11 @@ fn rle_encode<'py>(py: Python<'py>, data: PyReadonlyArrayDyn<u64>) -> &'py PyArr
 }
 
 fn rle_encode_1d(data: Array1<u64>) -> Array1<u64> {
-    let mut encoded = Array1::<u64>::default(data.len()*2);
+    let mut encoded = vec![0; data.len() * 2];
     let mut count = 0;
     let mut prev = data[0];
     let mut index = 0;
+
     for col in data {
         if col == prev {
             count += 1;
@@ -29,7 +30,7 @@ fn rle_encode_1d(data: Array1<u64>) -> Array1<u64> {
     }
     encoded[index] = count;
     encoded[index + 1] = prev;
-    encoded.slice(s![..index+2]).to_owned()
+    Array1::<u64>::from(encoded[..index+2].to_vec())
 }
 
 #[pyfunction]
@@ -63,22 +64,18 @@ fn rle_decode_1d(data: Array1<u64>) -> Array1<u64> {
 }
 
 fn rle_decode_2d(data: Array1<u64>, width: usize, height: usize) -> Array2<u64> {
-    let mut decoded = Array2::<u64>::default((width, height));
+    let mut decoded = vec![0; width * height];
     // let mut decoded = vec![vec![0; height as usize]; width as usize];
-    let mut row_count = 0;
-    let mut col_count = 0;
+    let mut index = 0;
     for i in (0..data.len()).step_by(2) {
         let count = data[i];
         let value = data[i+1];
         for _ in 0..count {
-            if row_count == width {
-                decoded[[row_count, col_count]] = value;
-                row_count += 1;
-                col_count = 0;
-            }
+            decoded[index] = value;
+            index += 1;
         }
     }
-    decoded
+    Array2::<u64>::from_shape_vec((width, height), decoded).unwrap()
 }
 
 /// A Python module implemented in Rust.
