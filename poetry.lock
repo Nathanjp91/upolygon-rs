@@ -140,7 +140,29 @@ files = [
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
 ]
 
+[[package]]
+name = "upolygon"
+version = "0.1.10"
+description = "Collection of fast polygon operations for DL"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "upolygon-0.1.10-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:363c0e10768c64da5563242d4c4b0a83ff001d7d482b41bf8817381e31d61e26"},
+    {file = "upolygon-0.1.10-cp310-cp310-win_amd64.whl", hash = "sha256:480749a637feaab7da667be4c62f64472082ef74c9059ec2130ab8a3e2f4411d"},
+    {file = "upolygon-0.1.10-cp37-cp37m-macosx_10_15_x86_64.whl", hash = "sha256:c0604ce5536f9fc43f17020e0d71b090cc706bc9a2e6f2527e6915fa8789f58a"},
+    {file = "upolygon-0.1.10-cp37-cp37m-win_amd64.whl", hash = "sha256:b44da1bd58ada96362a8e2c77ba748dd45f8e590e029576402d85d6fb0a39c8b"},
+    {file = "upolygon-0.1.10-cp38-cp38-macosx_10_15_x86_64.whl", hash = "sha256:364d4dbf4b495aeb167cb00c256519a856a1216ec8be9eb3f1b91af3188c2146"},
+    {file = "upolygon-0.1.10-cp38-cp38-win_amd64.whl", hash = "sha256:8349feb3c1c49e17caccf572861d022c9fd6d9e06fdad13662167fd561483f61"},
+    {file = "upolygon-0.1.10-cp39-cp39-macosx_11_0_x86_64.whl", hash = "sha256:7c6735d14d7c2c5296e1c94c1a5a539ad4d7716974e433265c62d7734d9e37be"},
+    {file = "upolygon-0.1.10-cp39-cp39-win_amd64.whl", hash = "sha256:fc73ae4db1551b0d433f98a4092ec71a64bf0eee5da4fff5ca0d95a410e07549"},
+    {file = "upolygon-0.1.10.tar.gz", hash = "sha256:ab983bc1a146b58b6712be35d0de1656d89f3432f318b1e9ba6b990849192827"},
+]
+
+[package.dependencies]
+numpy = "*"
+
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "485f699f1626522314786642c0393a0c45293554c2e0cf476c8fd4b07f6286f5"
+content-hash = "dcd5939e721332e16a9baa4bcdc8096d2e4795db9a214159e24c2ef3ebe36210"
