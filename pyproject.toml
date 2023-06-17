@@ -28,4 +28,6 @@ python = "^3.8"
 pytest = "^7.3.2"
 numpy = "^1.24.3"
 upolygon = "^0.1.10"
+seaborn = "^0.12.2"
+pandas = "^2.0.2"
 
