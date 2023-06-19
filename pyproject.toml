@@ -30,4 +30,5 @@ numpy = "^1.24.3"
 upolygon = "^0.1.10"
 seaborn = "^0.12.2"
 pandas = "^2.0.2"
+cython = "^0.29.35"
 
