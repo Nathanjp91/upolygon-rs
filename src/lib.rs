@@ -1,3 +1,5 @@
+use std::ops::Bound;
+
 use pyo3::{prelude::*};
 use numpy::ndarray::{Array1, Array2};
 use numpy::{IntoPyArray, PyArrayDyn, PyReadonlyArrayDyn, PyArray1, PyArray2, PyReadonlyArray2};
@@ -19,18 +21,75 @@ struct Point {
 
 struct Polygon {
     points: Vec<Point>,
-    extents: (i64, i64, i64, i64),
+    extents: BoundingBox,
     valid: bool,
+    shifted: bool,
+    offset: Point,
+}
+struct BoundingBox {
+    min_x: i64,
+    min_y: i64,
+    max_x: i64,
+    max_y: i64,
 }
 
 impl Polygon {
     fn new(points: Vec<Point>) -> Self {
-        let extents = get_extents(points.clone());
+        let extents = Polygon::get_extents(points.as_ref());
         let valid = points[0].x == points[points.len() - 1].x && points[0].y == points[points.len() - 1].y;
         Self {
             points,
             extents,
-            valid
+            valid,
+            shifted: false,
+            offset: Point { x: 0, y: 0 },
+        }
+    }
+    fn get_extents(points: &Vec<Point>) -> BoundingBox {
+        let mut min_x = std::i64::MAX;
+        let mut min_y = std::i64::MAX;
+        let mut max_x = std::i64::MIN;
+        let mut max_y = std::i64::MIN;
+        for point in points.iter() {
+            if point.x < min_x {
+                min_x = point.x;
+            }
+            if point.y < min_y {
+                min_y = point.y;
+            }
+            if point.x > max_x {
+                max_x = point.x;
+            }
+            if point.y > max_y {
+                max_y = point.y;
+            }
+        }
+        BoundingBox {
+            min_x,
+            min_y,
+            max_x,
+            max_y,
+        }
+    }
+    fn shift(&mut self, x: i64, y: i64) {
+        for point in self.points.iter_mut() {
+            point.x += x;
+            point.y += y;
+        }
+        self.extents.min_x += x;
+        self.extents.min_y += y;
+        self.extents.max_x += x;
+        self.extents.max_y += y;
+        self.offset.x += x;
+        self.offset.y += y;
+        self.shifted = true;
+        if (self.offset.x == 0) && (self.offset.y == 0) {
+            self.shifted = false;
+        }
+    }
+    fn correct(&mut self) {
+        if self.shifted {
+            self.shift(-self.offset.x, -self.offset.y);
         }
     }
 }
@@ -58,14 +117,14 @@ fn rle_encode_1d(data: Array1<u64>) -> Array1<u64> {
 }
 
 #[pyfunction]
-fn rle_decode<'py>(py: Python<'py>, data: PyReadonlyArrayDyn<u64>, width: Option<usize>, height: Option<usize>) -> &'py PyArrayDyn<u64> {
+fn rle_decode(py: Python, data: PyReadonlyArrayDyn<u64>, width: Option<usize>, height: Option<usize>) -> Py<PyArrayDyn<u64>> {
     let data = data.as_array().into_shape([data.len()]).unwrap().to_owned();
     if width.unwrap_or(1) == 1 {
         let data = rle_decode_1d(data);
-        return data.into_dyn().into_pyarray(py);
+        return data.into_dyn().into_pyarray(py).into_py(py);
     } else {
         let data = rle_decode_2d(data, width.unwrap_or(1), height.unwrap_or(0));
-        return data.into_dyn().into_pyarray(py);
+        return data.into_dyn().into_pyarray(py).into_py(py);
     }
 }
 
@@ -102,20 +161,62 @@ fn rle_decode_2d(data: Array1<u64>, width: usize, height: usize) -> Array2<u64> 
     Array2::<u64>::from_shape_vec((width, height), decoded).unwrap()
 }
 
+// #[pyfunction]
+// fn draw_polygons(py: Python, data: PyReadonlyArray2<u64>, polygons: Vec<Vec<Point>>) -> PyResult<Py<PyArray2<u64>>> {
+//     let data = data.as_array().to_owned();
+//     let polygons = polygons.iter().map(|polygon| Polygon::new(polygon.clone())).collect::<Vec<Polygon>>();
+//     let width = data.shape()[0];
+//     let height = data.shape()[1];
+//     let needs_correction = polygons.iter().any(|polygon| polygon_out_of_bounds(polygon.points.as_ref(), width, height));
+//     if needs_correction {
+        
+//         let data = Array2::<u64>::from_shape_vec((width, height), data.iter().map(|x| *x).collect::<Vec<u64>>()).unwrap();
+//     }
+//     let data = draw_polygons_rs(data, polygons);
+//     return Ok(data.into_pyarray(py).into_py(py));
+// }
+
 #[pyfunction]
-fn draw_polygon<'py>(py: Python<'py>,data: PyReadonlyArray2<u64>, points: Vec<Point>) ->  PyResult<PyArray2<u64>> {
+fn draw_polygon(py: Python,data: PyReadonlyArray2<u64>, points: Vec<Point>) -> PyResult<Py<PyArray2<u64>>> {
     let polygon = Polygon::new(points);
     if !polygon.valid {
         return Err(pyo3::exceptions::PyValueError::new_err("Polygon must be closed"));
     }
     let data = data.as_array().to_owned();
-    let mut data = draw_polygon_rs(data, polygon.points.clone());
-    return Ok(data.into_pyarray(py));
+    let data = draw_polygon_rs(data, polygon.points.as_ref());
+    return Ok(data.into_pyarray(py).into_py(py));
 }
 
-fn draw_polygon_rs(data: Array2<u64>, points: Vec<Point>) -> Array2<u64> {
+// fn get_furthest_extents(polygons: &Vec<Polygon>) -> Extents {
+//     let mut min_x = std::i64::MAX;
+//     let mut min_y = std::i64::MAX;
+//     let mut max_x = std::i64::MIN;
+//     let mut max_y = std::i64::MIN;
+//     for polygon in polygons {
+//         if polygon.extents.min_x < min_x {
+//             min_x = polygon.extents.min_x;
+//         }
+//         if polygon.extents.min_y < min_y {
+//             min_y = polygon.extents.min_y;
+//         }
+//         if polygon.extents.max_x > max_x {
+//             max_x = polygon.extents.max_x;
+//         }
+//         if polygon.extents.max_y > max_y {
+//             max_y = polygon.extents.max_y;
+//         }
+//     }
+//     Extents {
+//         min_x,
+//         min_y,
+//         max_x,
+//         max_y,
+//     }
+// }
+
+fn draw_polygon_rs(data: Array2<u64>, points: &Vec<Point>) -> Array2<u64> {
     let polygon = Polygon::new(points.clone());
-    if polygon_out_of_bounds(polygon.points.clone(), data.shape()[0] as usize, data.shape()[1] as usize) {
+    if polygon_out_of_bounds(polygon.points.as_ref(), data.shape()[0] as usize, data.shape()[1] as usize) {
         panic!("Polygon out of bounds");
     }
     let mut result = data.clone();
@@ -127,7 +228,7 @@ fn draw_polygon_rs(data: Array2<u64>, points: Vec<Point>) -> Array2<u64> {
     result
 }
 
-fn polygon_out_of_bounds(polygon: Vec<Point>, width: usize, height: usize) -> bool {
+fn polygon_out_of_bounds(polygon: &Vec<Point>, width: usize, height: usize) -> bool {
     for i in (0..polygon.len()).step_by(2) {
         if out_of_bounds(polygon[i].clone(), width, height) {
             return true;
@@ -136,27 +237,6 @@ fn polygon_out_of_bounds(polygon: Vec<Point>, width: usize, height: usize) -> bo
     false
 }
 
-fn get_extents(points: Vec<Point>) -> (i64, i64, i64, i64) {
-    let mut min_x = std::i64::MAX;
-    let mut min_y = std::i64::MAX;
-    let mut max_x = std::i64::MIN;
-    let mut max_y = std::i64::MIN;
-    for p in points {
-        if p.x < min_x {
-            min_x = p.x;
-        }
-        if p.y < min_y {
-            min_y = p.y;
-        }
-        if p.x > max_x {
-            max_x = p.x;
-        }
-        if p.y > max_y {
-            max_y = p.y;
-        }
-    }
-    (min_x, min_y, max_x, max_y)
-}
 
 fn out_of_bounds(p: Point, width: usize, height: usize) -> bool {
     p.x < 0 || p.x >= (width as i64) || p.y < 0 || p.y >= (height as i64)
