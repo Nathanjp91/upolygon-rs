@@ -1,4 +1,3 @@
-use std::ops::Bound;
 use std::vec;
 
 use pyo3::{prelude::*};
@@ -20,6 +19,11 @@ struct Point {
     y: i64,
 }
 
+impl Point {
+    fn new(x: i64, y: i64) -> Self {
+        Self { x, y }
+    }
+}
 struct Polygon {
     points: Vec<Point>,
     extents: Extents,
@@ -32,6 +36,52 @@ struct Extents {
     min_y: i64,
     max_x: i64,
     max_y: i64,
+}
+
+struct ComplexPolygon {
+    polygons: Vec<Polygon>,
+    extents: Extents,
+    valid: bool,
+    shifted: bool,
+    offset: Point,
+}
+impl ComplexPolygon {
+    fn from_paths(paths: Vec<Vec<Point>>) -> Self {
+        let mut polygons = Vec::<Polygon>::new();
+        let mut extents = Extents {
+            min_x: std::i64::MAX,
+            min_y: std::i64::MAX,
+            max_x: std::i64::MIN,
+            max_y: std::i64::MIN,
+        };
+        let mut valid = true;
+        for path in paths {
+            let polygon = Polygon::new(path);
+            if !polygon.valid {
+                valid = false;
+            }
+            if polygon.extents.min_x < extents.min_x {
+                extents.min_x = polygon.extents.min_x;
+            }
+            if polygon.extents.min_y < extents.min_y {
+                extents.min_y = polygon.extents.min_y;
+            }
+            if polygon.extents.max_x > extents.max_x {
+                extents.max_x = polygon.extents.max_x;
+            }
+            if polygon.extents.max_y > extents.max_y {
+                extents.max_y = polygon.extents.max_y;
+            }
+            polygons.push(polygon);
+        }
+        Self {
+            polygons,
+            extents,
+            valid,
+            shifted: false,
+            offset: Point { x: 0, y: 0 },
+        }
+    }
 }
 
 impl Polygon {
@@ -231,12 +281,40 @@ fn draw_polygon_rs(data: Array2<u64>, points: &mut Vec<Point>) -> Array2<u64> {
         data = get_new_mask(&mut vec![polygon]);
     }
     let mut result = data.clone();
-    for i in (0..polygon.points.len()).step_by(2) {
-        let x = polygon.points[i].x;
-        let y = polygon.points[i+1].y;
-        result[[x as usize, y as usize]] = 1;
+    for i in (0..(points.len()-1)) {
+        let line = bresenham(points[i].x, points[i].y, points[i+1].x, points[i+1].y);
+        for point in line {
+            result[[point.x as usize, point.y as usize]] = 1;
+        }
     }
     result
+}
+
+fn bresenham(x0: i64, y0: i64, x1: i64, y1: i64) -> Vec<Point> {
+    let mut points = Vec::<Point>::new();
+    let dx = (x1 - x0).abs();
+    let dy = (y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx - dy;
+    let mut x = x0;
+    let mut y = y0;
+    loop {
+        points.push(Point::new(x, y));
+        if x == x1 && y == y1 {
+            break;
+        }
+        let e2 = 2 * err;
+        if e2 > -dy {
+            err -= dy;
+            x += sx;
+        }
+        if e2 < dx {
+            err += dx;
+            y += sy;
+        }
+    }
+    points
 }
 
 fn polygon_out_of_bounds(polygon: &Vec<Point>, width: usize, height: usize) -> bool {
