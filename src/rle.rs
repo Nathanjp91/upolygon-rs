@@ -85,7 +85,6 @@ mod tests {
     fn rle_encode_1d_test() {
         let data = Array1::<u64>::from(vec![0, 1, 1, 1, 0, 0, 1, 0, 0, 0]);
         let result = super::rle_encode_1d(data);
-        println!("{:?}", result);
         assert_eq!(result, Array1::from(vec![1, 0, 3, 1, 2, 0, 1, 1, 3, 0]));
     }
 }
