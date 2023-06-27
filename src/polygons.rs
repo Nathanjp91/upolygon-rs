@@ -4,26 +4,26 @@ use numpy::ndarray::Array2;
 use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
 
 
-// #[pyfunction]
-// fn draw_polygons(py: Python, data: PyReadonlyArray2<u64>, polygons: Vec<Vec<Point>>) -> PyResult<Py<PyArray2<u64>>> {
-//     let data = data.as_array().to_owned();
-//     let polygons = polygons.iter().map(|polygon| Polygon::new(polygon.clone())).collect::<Vec<Polygon>>();
-//     let width = data.shape()[0];
-//     let height = data.shape()[1];
-//     let needs_correction = polygons.iter().any(|polygon| polygon_out_of_bounds(polygon.points.as_ref(), width, height));
-//     if needs_correction {
-        
-//         let data = Array2::<u64>::from_shape_vec((width, height), data.iter().map(|x| *x).collect::<Vec<u64>>()).unwrap();
-//     }
-//     let data = draw_polygons_rs(data, polygons);
-//     return Ok(data.into_pyarray(py).into_py(py));
-// }
+#[pyfunction]
+pub fn draw_polygons(py: Python, data: PyReadonlyArray2<u64>, polygons_py: Vec<Vec<Point>>) -> PyResult<Py<PyArray2<u64>>> {
+    let mut polygons = Vec::<Polygon>::new();
+    for polygon_py in polygons_py {
+        let mut polygon = Polygon::new(polygon_py);
+        if !polygon.valid() {
+            polygon.close();
+        }
+        polygons.push(polygon);
+    }
+    let data = data.as_array().to_owned();
+    let data = draw_polygons_rs(data, &mut polygons);
+    return Ok(data.into_pyarray(py).into_py(py));
+}
 
 #[pyfunction]
-pub fn draw_polygon(py: Python,data: PyReadonlyArray2<u64>, points: Vec<Point>) -> PyResult<Py<PyArray2<u64>>> {
-    let mut polygon = Polygon::new(points);
+pub fn draw_polygon(py: Python,data: PyReadonlyArray2<u64>, points_py: Vec<Point>) -> PyResult<Py<PyArray2<u64>>> {
+    let mut polygon = Polygon::new(points_py);
     if !polygon.valid() {
-        return Err(pyo3::exceptions::PyValueError::new_err("Polygon must be closed"));
+        polygon.close();
     }
     let data = data.as_array().to_owned();
     let data = draw_polygon_rs(data, polygon.as_mut());
@@ -86,6 +86,25 @@ fn draw_polygon_rs(data: Array2<u64>, polygon: &mut Polygon) -> Array2<u64> {
     result
 }
 
+fn draw_polygons_rs(data: Array2<u64>, polygons: &mut Vec<Polygon>) -> Array2<u64> {
+    let width = data.shape()[0] as usize;
+    let height = data.shape()[1] as usize;
+    let mut data = data.clone();
+    let bounded = polygons.iter().any(|polygon| polygon.clone().out_of_bounds(width, height));
+    if bounded {
+        data = get_new_mask(polygons);
+    }
+    for polygon in polygons {
+        let points = polygon.points();
+        for i in (0..(points.len()-1)) {
+            let line = bresenham(points[i], points[i+1]);
+            for point in line {
+                data[[point.x as usize, point.y as usize]] = 1;
+            }
+        }
+    }
+    data
+}
 
 fn bresenham(p1: Point, p2: Point) -> Vec<Point> {
     let mut points = Vec::<Point>::new();

@@ -1,7 +1,7 @@
 use pyo3::{prelude::*};
 
 
-#[derive(FromPyObject, Debug, Clone, Copy)]
+#[derive(FromPyObject, Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Point {
     pub x: i64,
     pub y: i64,
@@ -55,9 +55,10 @@ impl ComplexPolygon {
         };
         let mut valid = true;
         for path in paths {
-            let polygon = Polygon::new(path);
+            let mut polygon = Polygon::new(path);
             if !polygon.valid {
                 valid = false;
+                polygon.close();
             }
             if polygon.extents.min_x < extents.min_x {
                 extents.min_x = polygon.extents.min_x;
@@ -93,6 +94,14 @@ impl Polygon {
             valid,
             shifted: false,
             offset: Point { x: 0, y: 0 },
+        }
+    }
+    pub fn close(&mut self) {
+        if self.points.len() > 0 {
+            if self.points[0] != self.points[self.points.len() - 1] {
+                self.points.push(self.points[0].clone());
+                self.valid = true;
+            }
         }
     }
     pub fn as_mut(&mut self) -> &mut Self {
