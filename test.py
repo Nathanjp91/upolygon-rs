@@ -12,3 +12,9 @@ path2 = [Point(x=2, y=2), Point(x=2, y=3), Point(x=3, y=3), Point(x=3, y=2)]
 paths = [path, path2]
 mask = up.draw_polygons(empty_mask, paths)
 print(mask)
+
+
+image = np.zeros((4,4,3), dtype=np.uint8)
+mask = np.array([[1, 1, 1, 1],[1, 0, 0, 1],[1, 0, 0, 1],[1, 1, 1, 1]], dtype=np.uint8)
+print(mask)
+a, b, c = up.find_contours(mask)

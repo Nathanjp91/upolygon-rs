@@ -11,6 +11,9 @@ impl Point {
     pub fn new(x: i64, y: i64) -> Self {
         Self { x, y }
     }
+    pub fn to_tuple(&self) -> Vec<i64> {
+        vec![self.x, self.y]
+    }
     pub fn shift(&mut self, x: i64, y: i64) {
         self.x += x;
         self.y += y;

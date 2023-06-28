@@ -20,7 +20,7 @@ pub fn draw_polygons(py: Python, data: PyReadonlyArray2<u64>, polygons_py: Vec<V
 }
 
 #[pyfunction]
-pub fn draw_polygon(py: Python,data: PyReadonlyArray2<u64>, points_py: Vec<Point>) -> PyResult<Py<PyArray2<u64>>> {
+pub fn draw_polygon(py: Python, data: PyReadonlyArray2<u64>, points_py: Vec<Point>) -> PyResult<Py<PyArray2<u64>>> {
     let mut polygon = Polygon::new(points_py);
     if !polygon.valid() {
         polygon.close();
@@ -309,8 +309,8 @@ impl IndexMut<Point> for ArrayViewMut2<'_, i8> {
     }
 }
 
-fn find_contours(
-    image: &Array2<u8>,
+fn find_contours_rs(
+    image: Array2<u8>,
 ) -> (Array2<i8>, Vec<Vec<Point>>, Vec<Vec<Point>>) {
     let mut c = i8::default();
     let (height, width) = image.dim();
@@ -319,7 +319,7 @@ fn find_contours(
     let mut inner_paths = Vec::new();
     let mut outer_paths = Vec::new();
 
-    padded_image.slice_mut(s![1..height+1, 1..width+1]).assign(image);
+    padded_image.slice_mut(s![1..height+1, 1..width+1]).assign(&image);
 
     for y in 1..height {
         for x in 1..width {
@@ -352,4 +352,19 @@ fn find_contours(
     }
 
     (labels.slice(s![1..height+1, 1..width+1]).to_owned(), outer_paths, inner_paths)
+}
+
+#[pyfunction]
+pub fn find_contours(py: Python, image: PyReadonlyArray2<u8>) -> PyResult<(Py<PyArray2<i8>>, Vec<Vec<i64>>, Vec<Vec<i64>>)> {
+    let image = image.as_array();
+    let (labels, outer_paths, inner_paths) = find_contours_rs(image.to_owned());
+    let outer_paths = outer_paths
+        .into_iter()
+        .flat_map(|path| path.into_iter().map(|point| point.to_tuple()).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+    let inner_paths = inner_paths
+        .into_iter()
+        .flat_map(|path| path.into_iter().map(|point| point.to_tuple()).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+    Ok((labels.into_pyarray(py).into_py(py), outer_paths, inner_paths))
 }
