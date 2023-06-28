@@ -1,7 +1,7 @@
 use pyo3::{prelude::*};
 
 
-#[derive(FromPyObject, Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(FromPyObject, Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Point {
     pub x: i64,
     pub y: i64,
@@ -15,9 +15,47 @@ impl Point {
         self.x += x;
         self.y += y;
     }
+    pub fn shift_clone(&self, x: i64, y: i64) -> Self {
+        Self {
+            x: self.x + x,
+            y: self.y + y,
+        }
+    }
     pub fn out_of_bounds(self, width: usize, height: usize) -> bool {
         self.x < 0 || self.y < 0 || self.x >= width as i64 || self.y >= height as i64
     }
+    pub fn as_mut(&mut self) -> &mut Self {
+        self
+    }
+    pub fn perpendicular_distance_to_line(self, line: &Line) -> f64 {
+        let x1 = line.start.x as f64;
+        let y1 = line.start.y as f64;
+        let x2 = line.end.x as f64;
+        let y2 = line.end.y as f64;
+        let x3 = self.x as f64;
+        let y3 = self.y as f64;
+        let px = x2 - x1;
+        let py = y2 - y1;
+        let d_squared = px * px + py * py;
+        let u = ((x3 - x1) * px + (y3 - y1) * py) / d_squared;
+        let mut x = x1;
+        let mut y = y1;
+        if u > 1.0 {
+            x = x2;
+            y = y2;
+        } else if u > 0.0 {
+            x += px * u;
+            y += py * u;
+        }
+        let dx = x - x3;
+        let dy = y - y3;
+        (dx * dx + dy * dy).sqrt()
+    }
+}
+
+pub struct Line {
+    pub start: Point,
+    pub end: Point,
 }
 
 #[derive(Debug, Clone)]

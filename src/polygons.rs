@@ -1,8 +1,8 @@
 use crate::geometry::*;
 use pyo3::prelude::*;
-use numpy::ndarray::Array2;
+use numpy::ndarray::{Array2, ArrayView2, ArrayViewMut2, s};
 use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
-
+use std::ops::{Add, Index, IndexMut};
 
 #[pyfunction]
 pub fn draw_polygons(py: Python, data: PyReadonlyArray2<u64>, polygons_py: Vec<Vec<Point>>) -> PyResult<Py<PyArray2<u64>>> {
@@ -131,4 +131,225 @@ fn bresenham(p1: Point, p2: Point) -> Vec<Point> {
         }
     }
     points
+}
+
+
+enum Direction {
+    Right,
+    DownRight,
+    Down,
+    DownLeft,
+    Left,
+    UpLeft,
+    Up,
+    UpRight,
+}
+
+impl Direction {
+    fn to_index(&self) -> usize {
+        match self {
+            Direction::Right => 0,
+            Direction::DownRight => 1,
+            Direction::Down => 2,
+            Direction::DownLeft => 3,
+            Direction::Left => 4,
+            Direction::UpLeft => 5,
+            Direction::Up => 6,
+            Direction::UpRight => 7,
+        }
+    }
+    fn from_index(index: usize) -> Direction {
+        match index {
+            0 => Direction::Right,
+            1 => Direction::DownRight,
+            2 => Direction::Down,
+            3 => Direction::DownLeft,
+            4 => Direction::Left,
+            5 => Direction::UpLeft,
+            6 => Direction::Up,
+            7 => Direction::UpRight,
+            _ => panic!("Invalid index"),
+        }
+    }
+    fn to_point(&self) -> Point {
+        match self {
+            Direction::Right => Point::new(1, 0),
+            Direction::DownRight => Point::new(1, 1),
+            Direction::Down => Point::new(0, 1),
+            Direction::DownLeft => Point::new(-1, 1),
+            Direction::Left => Point::new(-1, 0),
+            Direction::UpLeft => Point::new(-1, -1),
+            Direction::Up => Point::new(0, -1),
+            Direction::UpRight => Point::new(1, -1),
+        }
+    }
+    fn iter() -> impl Iterator<Item = Direction> {
+        vec![
+            Direction::Right,
+            Direction::DownRight,
+            Direction::Down,
+            Direction::DownLeft,
+            Direction::Left,
+            Direction::UpLeft,
+            Direction::Up,
+            Direction::UpRight,
+        ]
+        .into_iter()
+    }
+    fn iter_from(index: usize) -> impl Iterator<Item = Direction> {
+        let mut directions = Vec::<Direction>::new();
+        for i in index..8 {
+            directions.push(Direction::from_index(i));
+        }
+        for i in 0..index {
+            directions.push(Direction::from_index(i));
+        }
+        directions.into_iter()
+    }
+    fn iter_from_direction(direction: Direction) -> impl Iterator<Item = Direction> {
+        let index = direction.to_index();
+        Self::iter_from(index)
+    }
+}
+
+impl Add for Point {
+    type Output = Self;
+    fn add(self, other: Point) -> Point {
+        Point::new(self.x + other.x, self.y + other.y)
+    }
+}
+
+fn tracer(
+    p_point: Point,
+    old_direction: Direction,
+    n_point: &mut Point,
+    image: ArrayView2<u8>,
+    labels: &mut ArrayViewMut2<i8>,
+) -> Direction {
+    *n_point = p_point.clone().to_owned();
+    for direction in Direction::iter_from_direction(old_direction) {
+        let tmp_point = direction.to_point() + p_point;
+        let tmpx = tmp_point.x as usize;
+        let tmpy = tmp_point.y as usize;
+        if image[[tmpy, tmpx]] == 1 {
+            *n_point = tmp_point.clone().to_owned();
+            return direction;
+        } else {
+            labels[[tmpy as usize, tmpx as usize]] = -1;
+        }
+    }
+    unreachable!(); // Indicate that the loop is guaranteed to terminate
+}
+
+fn contour_trace(
+    p_point: Point,
+    c: i8,
+    image: ArrayView2<u8>,
+    labels: &mut ArrayViewMut2<i8>,
+    inner: bool,
+) -> Vec<Point> {
+    let starting_point = p_point.clone();
+    let mut n_point = Point::new(0,0);
+    let mut direction = if inner { Direction::DownRight } else { Direction::UpLeft };
+    let mut last_point_was_s = false;
+    let mut path = vec![p_point + Direction::UpLeft.to_point()];
+    direction = tracer(p_point, direction, &mut n_point, image, labels);
+    let t_point = n_point.clone().to_owned();
+
+    if t_point == starting_point {
+        return path;
+    }
+    path.push(t_point.clone() + Direction::UpLeft.to_point());
+
+    labels[n_point] = c;
+    loop {
+        direction = tracer(p_point, direction, &mut n_point, image, labels);
+        if last_point_was_s && n_point == t_point {
+            return path;
+        }
+        path.push(n_point.clone() + Direction::UpLeft.to_point());
+
+        labels[n_point] = c;
+        last_point_was_s = n_point == starting_point
+    }
+}
+
+impl Index<Point> for Array2<u8> {
+    type Output = u8;
+    fn index(&self, index: Point) -> &u8 {
+        &self[[index.y as usize, index.x as usize]]
+    }
+}
+impl IndexMut<Point> for Array2<i8> {
+    fn index_mut(&mut self, index: Point) -> &mut i8 {
+        &mut self[[index.y as usize, index.x as usize]]
+    }
+}
+impl Index<Point> for Array2<i8> {
+    type Output = i8;
+    fn index(&self, index: Point) -> &i8 {
+        &self[[index.y as usize, index.x as usize]]
+    }
+}
+impl Index<Point> for ArrayView2<'_, u8> {
+    type Output = u8;
+    fn index(&self, index: Point) -> &u8 {
+        &self[[index.y as usize, index.x as usize]]
+    }
+}
+impl Index<Point> for ArrayViewMut2<'_, i8> {
+    type Output = i8;
+    fn index(&self, index: Point) -> &i8 {
+        &self[[index.y as usize, index.x as usize]]
+    }
+}
+impl IndexMut<Point> for ArrayViewMut2<'_, i8> {
+    fn index_mut(&mut self, index: Point) -> &mut i8 {
+        &mut self[[index.y as usize, index.x as usize]]
+    }
+}
+
+fn find_contours(
+    image: &Array2<u8>,
+) -> (Array2<i8>, Vec<Vec<Point>>, Vec<Vec<Point>>) {
+    let mut c = i8::default();
+    let (height, width) = image.dim();
+    let mut padded_image = Array2::<u8>::zeros((height + 2, width + 2));
+    let mut labels = Array2::<i8>::zeros((height + 2, width + 2));
+    let mut inner_paths = Vec::new();
+    let mut outer_paths = Vec::new();
+
+    padded_image.slice_mut(s![1..height+1, 1..width+1]).assign(image);
+
+    for y in 1..height {
+        for x in 1..width {
+            if padded_image[[y, x]] == 0 { continue; }
+
+            let mut handled = false;
+            let point = Point::new(x as i64, y as i64);
+            if labels[[y, x]] == 0 && padded_image[[y-1, x]] == 0 {
+                labels[[y, x]] = c;
+                let path = contour_trace(point, c, padded_image.view(), &mut labels.view_mut(), false);
+                outer_paths.push(path);
+                c += 1;
+                handled = true;
+            }
+
+            if labels[[y+1, x]] != -1 && image[[y+1, x]] == 0 {
+                let path = if labels[[y, x]] == 0 {
+                    contour_trace(point, labels[[y,x-1]], padded_image.view(), &mut labels.view_mut(), true)
+                } else {
+                    contour_trace(point, labels[[y,x]], padded_image.view(), &mut labels.view_mut(), true)
+                };
+                inner_paths.push(path);
+                handled = true;
+            }
+
+            if !handled && labels[[y, x]] == 0{
+                labels[[y, x]] = labels[[y, x-1]];
+            }
+        }
+    }
+
+    (labels.slice(s![1..height+1, 1..width+1]).to_owned(), outer_paths, inner_paths)
 }
