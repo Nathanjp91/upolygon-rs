@@ -1,5 +1,7 @@
 use pyo3::{prelude::*};
-
+use std::ops::{Add, Index, IndexMut};
+use numpy::ndarray::{Array2, ArrayView2, ArrayViewMut2, s};
+use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
 
 #[derive(FromPyObject, Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Point {
@@ -209,5 +211,126 @@ impl Polygon {
     }
     pub fn out_of_bounds(self, width: usize, height: usize) -> bool {
         self.extents.min_x < 0 || self.extents.min_y < 0 || self.extents.max_x >= width as i64 || self.extents.max_y >= height as i64
+    }
+}
+
+pub enum Direction {
+    Right,
+    DownRight,
+    Down,
+    DownLeft,
+    Left,
+    UpLeft,
+    Up,
+    UpRight,
+}
+
+impl Direction {
+    pub fn to_index(&self) -> usize {
+        match self {
+            Direction::Right => 0,
+            Direction::DownRight => 1,
+            Direction::Down => 2,
+            Direction::DownLeft => 3,
+            Direction::Left => 4,
+            Direction::UpLeft => 5,
+            Direction::Up => 6,
+            Direction::UpRight => 7,
+        }
+    }
+    pub fn from_index(index: usize) -> Direction {
+        match index {
+            0 => Direction::Right,
+            1 => Direction::DownRight,
+            2 => Direction::Down,
+            3 => Direction::DownLeft,
+            4 => Direction::Left,
+            5 => Direction::UpLeft,
+            6 => Direction::Up,
+            7 => Direction::UpRight,
+            _ => panic!("Invalid index"),
+        }
+    }
+    pub fn to_point(&self) -> Point {
+        match self {
+            Direction::Right => Point::new(1, 0),
+            Direction::DownRight => Point::new(1, 1),
+            Direction::Down => Point::new(0, 1),
+            Direction::DownLeft => Point::new(-1, 1),
+            Direction::Left => Point::new(-1, 0),
+            Direction::UpLeft => Point::new(-1, -1),
+            Direction::Up => Point::new(0, -1),
+            Direction::UpRight => Point::new(1, -1),
+        }
+    }
+    pub fn iter() -> impl Iterator<Item = Direction> {
+        vec![
+            Direction::Right,
+            Direction::DownRight,
+            Direction::Down,
+            Direction::DownLeft,
+            Direction::Left,
+            Direction::UpLeft,
+            Direction::Up,
+            Direction::UpRight,
+        ]
+        .into_iter()
+    }
+    pub fn iter_from(index: usize) -> impl Iterator<Item = Direction> {
+        let mut directions = Vec::<Direction>::new();
+        for i in index..8 {
+            directions.push(Direction::from_index(i));
+        }
+        for i in 0..index {
+            directions.push(Direction::from_index(i));
+        }
+        directions.into_iter()
+    }
+    pub fn iter_from_direction(direction: Direction) -> impl Iterator<Item = Direction> {
+        let index = direction.to_index();
+        Self::iter_from(index)
+    }
+}
+
+
+
+impl Add for Point {
+    type Output = Self;
+    fn add(self, other: Point) -> Point {
+        Point::new(self.x + other.x, self.y + other.y)
+    }
+}
+impl Index<Point> for Array2<u8> {
+    type Output = u8;
+    fn index(&self, index: Point) -> &u8 {
+        &self[[index.y as usize, index.x as usize]]
+    }
+}
+impl IndexMut<Point> for Array2<i8> {
+    fn index_mut(&mut self, index: Point) -> &mut i8 {
+        &mut self[[index.y as usize, index.x as usize]]
+    }
+}
+impl Index<Point> for Array2<i8> {
+    type Output = i8;
+    fn index(&self, index: Point) -> &i8 {
+        &self[[index.y as usize, index.x as usize]]
+    }
+}
+impl Index<Point> for ArrayView2<'_, u8> {
+    type Output = u8;
+    fn index(&self, index: Point) -> &u8 {
+        &self[[index.y as usize, index.x as usize]]
+    }
+}
+impl Index<Point> for ArrayViewMut2<'_, i8> {
+    type Output = i8;
+    fn index(&self, index: Point) -> &i8 {
+        &self[[index.y as usize, index.x as usize]]
+    }
+}
+impl IndexMut<Point> for ArrayViewMut2<'_, i8> {
+    fn index_mut(&mut self, index: Point) -> &mut i8 {
+        &mut self[[index.y as usize, index.x as usize]]
     }
 }

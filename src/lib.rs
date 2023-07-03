@@ -1,8 +1,10 @@
 mod rle;
 mod polygons;
 mod geometry;
+mod contours;
 use crate::polygons::*;
 use crate::rle::*;
+use crate::contours::*;
 use pyo3::{prelude::*};
 
 
