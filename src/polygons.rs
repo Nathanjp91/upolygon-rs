@@ -29,6 +29,21 @@ pub fn draw_polygon(py: Python, data: PyReadonlyArray2<u64>, points_py: Vec<Poin
     return Ok(data.into_pyarray(py).into_py(py));
 }
 
+#[pyfunction]
+pub fn draw_complex_polygon(py: Python, data: PyReadonlyArray2<u64>, points_py: Vec<Vec<Point>>) -> PyResult<Py<PyArray2<u64>>> {
+    let mut polygons = Vec::<Polygon>::new();
+    for polygon_py in points_py {
+        let mut polygon = Polygon::new(polygon_py);
+        if !polygon.valid() {
+            polygon.close();
+        }
+        polygons.push(polygon);
+    }
+    let data = data.as_array().to_owned();
+    let data = draw_polygons_rs(data, &mut polygons);
+    return Ok(data.into_pyarray(py).into_py(py));
+}
+
 fn get_new_mask(polygons: &mut Vec<Polygon>) -> Array2<u64> {
     let extents = get_furthest_extents(polygons);
     let width = (extents.max_x - extents.min_x) as usize;

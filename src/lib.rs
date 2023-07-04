@@ -17,5 +17,6 @@ fn upolygon_rs(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_polygon, m)?)?;
     m.add_function(wrap_pyfunction!(draw_polygons, m)?)?;
     m.add_function(wrap_pyfunction!(find_contours, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_complex_polygon, m)?)?;
     Ok(())
 }
